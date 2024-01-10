@@ -289,6 +289,8 @@ class SimpleViewer(ShowBase):
             tex = self.create_texture([0,1,0,1], f"joint{link_id}_tex")
             box.setTexture(tex, 1)
         box.setScale(0.01,0.01,0.01)
+        print("position:", position)
+        print("*position:", *position)
         node.setPos(self.render, *position)
         return node
     
@@ -393,6 +395,7 @@ class SimpleViewer(ShowBase):
     def set_joint_position_orientation(self, link_name, pos, quat):
         if not link_name in self.name2idx:
             return
+
         self.joints[self.name2idx[link_name]].setPos(self.render, *pos.tolist())
         self.joints[self.name2idx[link_name]].setQuat(self.render, pc.Quat(*quat[...,[3,0,1,2]].tolist()))
     
