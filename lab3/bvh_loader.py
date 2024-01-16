@@ -167,7 +167,7 @@ class BVHMotion():
             pi = self.joint_parent[i]
             parent_orientation = R.from_quat(joint_orientation[:,pi,:]) 
             joint_translation[:, i, :] = joint_translation[:, pi, :] + \
-                parent_orientation.apply(joint_position[:, i, :])
+                parent_orientation.apply(joint_position[:, i, :]) #????????
             joint_orientation[:, i, :] = (parent_orientation * R.from_quat(joint_rotation[:, i, :])).as_quat()
         return joint_translation, joint_orientation
     
