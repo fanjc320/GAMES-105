@@ -506,9 +506,9 @@ class SimpleViewer(ShowBase):
         
         from scipy.spatial.transform import Rotation as R
         axis = np.array([0,1,0])
-        angle = np.arctan2(forward_xz[0], forward_xz[1])
+        angle = np.arctan2(forward_xz[0], forward_xz[1]) #??????
         rot = R.from_rotvec(angle * axis).as_quat()
-        quat = pc.Quat(rot[3], rot[0], rot[1], rot[2])
+        quat = pc.Quat(rot[3], rot[0], rot[1], rot[2]) #????
         arrow.setQuat(quat)
         return arrow
     

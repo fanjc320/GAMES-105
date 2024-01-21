@@ -1,5 +1,6 @@
 import numpy as np
 import copy
+import math
 from scipy.spatial.transform import Rotation as R
 from scipy.spatial.transform import Slerp
 # ------------- lab1里的代码 -------------#
@@ -199,8 +200,9 @@ class BVHMotion():
         pass
     
     #--------------------- 你的任务 -------------------- #
-    
-    def decompose_rotation_with_yaxis(self, rotation):
+
+    @staticmethod
+    def decompose_rotation_with_yaxis(rotation):
         '''
         输入: rotation 形状为(4,)的ndarray, 四元数旋转
         输出: Ry, Rxz，分别为绕y轴的旋转和转轴在xz平面的旋转，并满足R = Ry * Rxz
@@ -208,7 +210,17 @@ class BVHMotion():
         Ry = np.zeros_like(rotation)
         Rxz = np.zeros_like(rotation)
         # TODO: 你的代码
-        
+        rotation_matrix = R.from_quat(rotation).as_matrix()
+        R1 = rotation_matrix[:, 1] # ???????
+        y_axis = np.array([0., 1., 0.])
+        rot_axis = np.cross(R1, y_axis)
+        theta = np.arccos(np.dot(R1, y_axis) / np.linalg.norm(R1))
+        if theta == 0.:   #?????
+            return [1., 0., 0., 0.], rotation
+        R_prime = R.from_rotvec(theta * rot_axis / np.linalg.norm(rot_axis)) #????
+        Ry = (R_prime * R.from_quat(rotation)).as_quat()
+        Rxz = (R.from_quat(Ry).inv() * R.from_quat(rotation)).as_quat() #????
+
         return Ry, Rxz
     
     # part 1
@@ -232,8 +244,47 @@ class BVHMotion():
         offset = target_translation_xz - res.joint_position[frame_num, 0, [0,2]]
         res.joint_position[:, 0, [0,2]] += offset
         # TODO: 你的代码
+        # 把第frame_num帧的根节点的face转到target
+        Ry, _ = self.decompose_rotation_with_yaxis(res.joint_rotation[frame_num, 0, :])
+        rot_target = np.array([target_facing_direction_xz[0], 0, target_facing_direction_xz[1]])
+        # source是Ry的z轴，target是目标的z轴，旋转轴是y轴
+        rot_source = R.from_quat(Ry).as_matrix()[:, 2]
+        rot_target = rot_target / np.linalg.norm(rot_target)
+        rot_source = rot_source / np.linalg.norm(rot_source)
+        rot_axis = np.cross(rot_source, rot_target)
+        # 虽然理论上rot_axis就是y轴，但是float的精度问题，必须重新设置为y轴，不然人物会飞
+        if rot_axis[1] > 0.:
+            rot_axis = np.array([0., 1., 0.])
+        else:
+            rot_axis = np.array([0., -1., 0.])
+        theta = np.arccos(np.dot(rot_source, rot_target))
+        delta_rotation = R.from_rotvec(theta * rot_axis)
+
+        # 修改orientation
+        res.joint_rotation[:, 0, :] = np.apply_along_axis(lambda q: (delta_rotation * R.from_quat(q)).as_quat(), axis=1,
+                                                          arr=res.joint_rotation[:, 0, :])
+
+        # 修改position
+        offset_center = res.joint_position[frame_num, 0, [0, 2]]
+        res.joint_position[:, 0, [0, 2]] -= offset_center
+        res.joint_position[:, 0, :] = np.apply_along_axis(delta_rotation.apply, axis=1, arr=res.joint_position[:, 0, :])
+        res.joint_position[:, 0, [0, 2]] += offset_center
+
         return res
 
+def get_interpolate_pose(rot1, rot2, pos1, pos2, w):
+    # 这个slerp的参数times到底是什么意思
+    ret_rot = np.empty_like(rot1)
+    for i in range(len(rot1)):
+        slerp = Slerp([0, 1], R.from_quat([rot1[i], rot2[i]]))
+        ret_rot[i] = slerp([w]).as_quat()
+
+    # 使用欧拉角直接线性插值，会产生鬼畜
+    # interpolate_euler = (1 - w) * R.from_quat(rot1).as_euler('XYZ') + w * R.from_quat(rot2).as_euler('XYZ')
+    # ret_rot = R.from_euler('XYZ', interpolate_euler).as_quat()
+
+    ret_pos = (1 - w) * pos1 + w * pos2
+    return ret_rot, ret_pos
 # part2
 def blend_two_motions(bvh_motion1, bvh_motion2, alpha):
     '''
@@ -250,7 +301,34 @@ def blend_two_motions(bvh_motion1, bvh_motion2, alpha):
     res.joint_rotation[...,3] = 1.0
 
     # TODO: 你的代码
-    
+    for i in range(len(alpha)):
+        cur_time = i / (len(alpha) - 1.)
+
+        frame_num1 = len(bvh_motion1.joint_rotation)
+        time1 = cur_time * (bvh_motion1.motion_length - 1)
+        index1 = math.floor(time1)
+        alpha1 = time1 - index1
+        rotation1, position1 = get_interpolate_pose(\
+            bvh_motion1.joint_rotation[index1, ...], \
+            bvh_motion1.joint_rotation[(index1 + 1) % frame_num1, ...], \
+            bvh_motion1.joint_position[index1, ...], \
+            bvh_motion1.joint_position[(index1 + 1) % frame_num1, ...], \
+            alpha1)
+
+        frame_num2 = len(bvh_motion2.joint_rotation)
+        time2 = cur_time * (bvh_motion2.motion_length - 1)
+        index2 = math.floor(time2)
+        alpha2 = time2 - index2
+        rotation2, position2 = get_interpolate_pose(\
+            bvh_motion2.joint_rotation[index2, ...], \
+            bvh_motion2.joint_rotation[(index2 + 1) % frame_num2, ...], \
+            bvh_motion2.joint_position[index2, ...], \
+            bvh_motion2.joint_position[(index2 + 1) % frame_num2, ...], \
+            alpha2)
+
+        res.joint_rotation[i, ...], res.joint_position[i, ...] = get_interpolate_pose(\
+            rotation1, rotation2, position1, position2, alpha[i])
+
     return res
 
 # part3
@@ -267,6 +345,22 @@ def build_loop_motion(bvh_motion):
     from smooth_utils import build_loop_motion
     return build_loop_motion(res)
 
+def nearest_frame(motion, target_pose):
+    def pose_distance(pose1, pose2):
+        total_dis = 0.
+        for i in range(1, pose1.shape[0]):
+            total_dis += np.linalg.norm(pose1[i] - pose2[i])
+        return total_dis
+
+    min_dis = float("inf")
+    ret = -1
+    for i in range(motion.motion_length):
+        dis = pose_distance(motion.joint_rotation[i], target_pose)
+        print(dis)
+        if dis < min_dis:
+            ret = i
+            min_dis = dis
+    return ret
 # part4
 def concatenate_two_motions(bvh_motion1, bvh_motion2, mix_frame1, mix_time):
     '''
@@ -280,8 +374,42 @@ def concatenate_two_motions(bvh_motion1, bvh_motion2, mix_frame1, mix_time):
     
     # TODO: 你的代码
     # 下面这种直接拼肯定是不行的(
-    res.joint_position = np.concatenate([res.joint_position[:mix_frame1], bvh_motion2.joint_position], axis=0)
-    res.joint_rotation = np.concatenate([res.joint_rotation[:mix_frame1], bvh_motion2.joint_rotation], axis=0)
-    
+    # res.joint_position = np.concatenate([res.joint_position[:mix_frame1], bvh_motion2.joint_position], axis=0)
+    # res.joint_rotation = np.concatenate([res.joint_rotation[:mix_frame1], bvh_motion2.joint_rotation], axis=0)
+    # 将bvh2设置为循环动作
+    bvh_motion2 = build_loop_motion(bvh_motion2)
+    motion = bvh_motion2
+    pos = motion.joint_position[-1, 0, [0, 2]]
+    rot = motion.joint_rotation[-1, 0]
+    facing_axis = R.from_quat(rot).apply(np.array([0, 0, 1])).flatten()[[0, 2]]
+    new_motion = motion.translation_and_rotation(0, pos, facing_axis)
+    bvh_motion2.append(new_motion)
+
+    start_frame2 = nearest_frame(bvh_motion2, bvh_motion1.joint_rotation[mix_frame1])
+    translation_xz = bvh_motion1.joint_position[mix_frame1, 0, [0, 2]]
+    Ry, _ = bvh_motion1.decompose_rotation_with_yaxis(bvh_motion1.joint_rotation[mix_frame1, 0, :])
+    facing_direction_xz = R.from_quat(Ry).as_matrix()[2, [0, 2]]
+    facing_direction_xz = [0, 1.0]
+    bvh_motion2 = bvh_motion2.translation_and_rotation(start_frame2, translation_xz, facing_direction_xz)
+
+    cur_mix_frame1 = mix_frame1
+    cur_mix_frame2 = start_frame2
+    for i in range(mix_time):
+        cur_mix_frame1 += 1
+        cur_mix_frame2 += 1
+        res.joint_rotation[cur_mix_frame1], res.joint_position[cur_mix_frame1] = get_interpolate_pose( \
+            res.joint_rotation[cur_mix_frame1],
+            bvh_motion2.joint_rotation[cur_mix_frame2],
+            res.joint_position[cur_mix_frame1],
+            bvh_motion2.joint_position[cur_mix_frame2],
+            (i + 1.) / mix_time)
+
+    res.joint_position = np.concatenate(
+        [res.joint_position[:cur_mix_frame1], bvh_motion2.joint_position[cur_mix_frame2:]], axis=0)
+    res.joint_rotation = np.concatenate(
+        [res.joint_rotation[:cur_mix_frame1], bvh_motion2.joint_rotation[cur_mix_frame2:]], axis=0)
+
     return res
 
+# https://github.com/Cltsu/GAMES105/blob/main/lab2/answer_task1.py
+# Decomposing a matrix(用于分解变换矩阵至旋转、平移，缩放分量) https://blog.csdn.net/GISsirclyx/article/details/4730543

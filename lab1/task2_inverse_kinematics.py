@@ -170,6 +170,7 @@ def main():
     # part1
     # part1_simple(viewer, np.array([0.5, 0.75, 0.5]))
     # part1_hard(viewer, np.array([0.5, 0.5, 0.5]))
+    # part1_hard(viewer, np.array([0.5, 0.75, 0.5]))
     # part1_animation(viewer, np.array([0.5, 0.5, 0.5]))
     
     # part2
@@ -179,3 +180,8 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# 代码来自https://github.com/GAMES-105/GAMES-105
+# https: // zhuanlan.zhihu.com / p / 608534364   IK(GAMES105)
+# https://zhuanlan.zhihu.com/p/576290408
+# https://zhuanlan.zhihu.com/p/576290408

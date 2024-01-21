@@ -13,7 +13,9 @@ def load_motion_data(bvh_file_path):
             data = [float(x) for x in line.split()]
             if len(data) == 0:
                 break
-            motion_data.append(np.array(data).reshape(1,-1))
+            data_reshape = np.array(data).reshape(1,-1)
+            # motion_data.append(np.array(data).reshape(1,-1))
+            motion_data.append(data_reshape)
         motion_data = np.concatenate(motion_data, axis=0)
     return motion_data
 
@@ -65,6 +67,10 @@ def part1_calculate_T_pose(bvh_file_path):
             if bvh_file[i].startswith('ROOT'):
                 line = i
                 parse_hierarchy(-1)
+<<<<<<< HEAD
+=======
+
+>>>>>>> af6530764a7f641248dfe8c3bb8f580a2a5fba89
     return joint_name, joint_parent, joint_offset
 
 
@@ -95,6 +101,10 @@ def part2_forward_kinematics(joint_name, joint_parent, joint_offset, motion_data
         if joint_name[i].endswith('_end'):
             cur_rotate = R.from_euler('XYZ', [0., 0., 0.], degrees=True)
         else:
+<<<<<<< HEAD
+=======
+            # tmp = 3 + frame_count * 3: 6 + frame_count * 3
+>>>>>>> af6530764a7f641248dfe8c3bb8f580a2a5fba89
             cur_rotate = R.from_euler('XYZ', motion_data[frame_id][3 + frame_count * 3: 6 + frame_count * 3],
                                       degrees=True)
             frame_count += 1
@@ -102,7 +112,11 @@ def part2_forward_kinematics(joint_name, joint_parent, joint_offset, motion_data
         p_orient = R.from_quat(joint_orientations[p])
         joint_orientations[i] = (p_orient * cur_rotate).as_quat()
         joint_positions[i] = joint_positions[p] + np.dot(R.from_quat(joint_orientations[p]).as_matrix(),
+<<<<<<< HEAD
                                                          joint_offset[i])
+=======
+                                                         joint_offset[i]) # ???????，
+>>>>>>> af6530764a7f641248dfe8c3bb8f580a2a5fba89
 
     return joint_positions, joint_orientations
 
@@ -117,5 +131,63 @@ def part3_retarget_func(T_pose_bvh_path, A_pose_bvh_path):
         两个bvh的joint name顺序可能不一致哦(
         as_euler时也需要大写的XYZ
     """
-    motion_data = None
+    def index_bone_to_channel(index, flag):
+        if flag == 't':
+            end_bone_index = end_bone_index_t
+        else:
+            end_bone_index = end_bone_index_a
+        for i in range(len(end_bone_index)):
+            if end_bone_index[i] > index:
+                return index - i
+        return index - len(end_bone_index)
+
+    def get_t2a_offset(bone_name): # 这里是不是可以改为只修改肩部
+        l_bone = ['lShoulder', 'lElbow', 'lWrist']
+        r_bone = ['rShoulder', 'rElbow', 'rWrist']
+        if bone_name in l_bone:
+            return R.from_euler('XYZ', [0., 0., 45.], degrees=True)
+        if bone_name in r_bone:
+            return R.from_euler('XYZ', [0., 0., -45.], degrees=True)
+        return R.from_euler('XYZ', [0., 0., 0.], degrees=True)
+
+    motion_data = load_motion_data(A_pose_bvh_path)
+
+    t_name, t_parent, t_offset = part1_calculate_T_pose(T_pose_bvh_path)
+    a_name, a_parent, a_offset = part1_calculate_T_pose(A_pose_bvh_path)
+
+    end_bone_index_t = []
+    for i in range(len(t_name)):
+        if t_name[i].endswith('_end'):
+            end_bone_index_t.append(i)
+
+    end_bone_index_a = []
+    for i in range(len(a_name)):
+        if a_name[i].endswith('_end'):
+            end_bone_index_a.append(i)
+
+    for m_i in range(len(motion_data)):
+        frame = motion_data[m_i]
+        cur_frame = np.empty(frame.shape[0])
+        cur_frame[:3] = frame[:3]
+        for t_i in range(len(t_name)):
+            cur_bone = t_name[t_i]
+            a_i = a_name.index(t_name[t_i])
+            if cur_bone.endswith('_end'):
+                continue
+            channel_t_i = index_bone_to_channel(t_i, 't')
+            channel_a_i = index_bone_to_channel(a_i, 'a')
+
+            # retarget
+            local_rotation = frame[3 + channel_a_i * 3: 6 + channel_a_i * 3]
+            if cur_bone in ['lShoulder', 'lElbow', 'lWrist', 'rShoulder', 'rElbow', 'rWrist']:
+                p_bone_name = t_name[t_parent[t_i]]
+                Q_pi = get_t2a_offset(p_bone_name)
+                Q_i = get_t2a_offset(cur_bone)
+                local_rotation = (Q_pi * R.from_euler('XYZ', local_rotation, degrees=True) * Q_i.inv()).as_euler('XYZ',
+                                                                                                                 degrees=True) #?????
+            # print("channel_t_i:", channel_t_i) # 0-19
+            cur_frame[3 + channel_t_i * 3: 6 + channel_t_i * 3] = local_rotation
+
+        motion_data[m_i] = cur_frame
+
     return motion_data
