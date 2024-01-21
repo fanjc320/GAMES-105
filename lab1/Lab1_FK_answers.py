@@ -30,9 +30,41 @@ def part1_calculate_T_pose(bvh_file_path):
     Tips:
         joint_name顺序应该和bvh一致
     """
-    joint_name = None
-    joint_parent = None
-    joint_offset = None
+    # joint_name = None
+    # joint_parent = None
+    # joint_offset = None
+    def parse_hierarchy(pred):
+        nonlocal joint_offset
+        nonlocal line
+
+        parts = str.split(bvh_file[line].strip(), ' ')
+        if parts[0].startswith('End'):
+            parts[1] = joint_name[pred] + '_end'
+
+        offset = np.array([float(num) for num in str.split(bvh_file[line + 2].strip())[1:]]).reshape(1, 3)
+        joint_name.append(parts[1])
+        joint_parent.append(pred)
+        joint_offset = np.append(joint_offset, offset, axis=0)
+        line += 4
+
+        if parts[0].startswith('End'):
+            return
+
+        pred = len(joint_name) - 1
+        while bvh_file[line].strip().startswith('JOINT') or bvh_file[line].strip().startswith('End'):
+            parse_hierarchy(pred)
+        line += 1
+
+    joint_name = []
+    joint_parent = []
+    joint_offset = np.empty((0, 3))
+
+    with open(bvh_file_path, 'r') as f:
+        bvh_file = f.readlines()
+        for i in range(len(bvh_file)):
+            if bvh_file[i].startswith('ROOT'):
+                line = i
+                parse_hierarchy(-1)
     return joint_name, joint_parent, joint_offset
 
 
@@ -48,8 +80,30 @@ def part2_forward_kinematics(joint_name, joint_parent, joint_offset, motion_data
         1. joint_orientations的四元数顺序为(x, y, z, w)
         2. from_euler时注意使用大写的XYZ
     """
-    joint_positions = None
-    joint_orientations = None
+    bone_num = len(joint_name)
+
+    joint_positions = np.empty((bone_num, 3))
+    joint_orientations = np.empty((bone_num, 4))
+
+    joint_positions[0] = motion_data[frame_id][:3]
+    joint_orientations[0] = R.from_euler('XYZ', motion_data[frame_id][3:6], degrees=True).as_quat()
+
+    frame_count = 1
+    for i in range(1, bone_num):
+        p = joint_parent[i]
+        cur_rotate = None
+        if joint_name[i].endswith('_end'):
+            cur_rotate = R.from_euler('XYZ', [0., 0., 0.], degrees=True)
+        else:
+            cur_rotate = R.from_euler('XYZ', motion_data[frame_id][3 + frame_count * 3: 6 + frame_count * 3],
+                                      degrees=True)
+            frame_count += 1
+
+        p_orient = R.from_quat(joint_orientations[p])
+        joint_orientations[i] = (p_orient * cur_rotate).as_quat()
+        joint_positions[i] = joint_positions[p] + np.dot(R.from_quat(joint_orientations[p]).as_matrix(),
+                                                         joint_offset[i])
+
     return joint_positions, joint_orientations
 
 

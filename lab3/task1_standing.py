@@ -97,8 +97,8 @@ def main():
     viewer = SimpleViewer(True) 
     # viewer.show_axis_frame()
     
-    part1_pd_control(viewer, 0) # 数字代表不同的测试setting
-    # part2_root_force(viewer, 0)
+    # part1_pd_control(viewer, 0) # 数字代表不同的测试setting
+    part2_root_force(viewer, 0)
     # part3_static_balance(viewer, 0)
     viewer.run()
     

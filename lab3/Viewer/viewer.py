@@ -357,7 +357,9 @@ class SimpleViewer(ShowBase):
         
     # @profile
     def simulationTask(self, pre_simulation_func = None, rendering = False):
-        
+        total_time = 0.0
+        dt = 0.04
+
         if pre_simulation_func is None:
             pre_simulation_func = self.pre_simulation_func
         for i in range(self.substep):
@@ -366,6 +368,12 @@ class SimpleViewer(ShowBase):
                 pre_simulation_func()
             self.world.step(1/(60*self.substep))
             self.contactgroup.empty()
+
+            x, y, z = self.myBody.getPosition()
+            u, v, w = self.myBody.getLinearVel()
+            print("%1.2fsec: pos=(%6.3f, %6.3f, %6.3f)  vel=(%6.3f, %6.3f, %6.3f)" % \
+                  (total_time, x, y, z, u, v, w))
+
             if rendering:
                 self.sync_physics_to_kinematics()
             
@@ -374,6 +382,8 @@ class SimpleViewer(ShowBase):
     def sync_physics_to_kinematics(self):
         for i in range(1, len(self.joints)):
                 self.joints[i].setPos(self.render, self.physics_joint[i].getAnchor())
+                if i == 0:
+                    print("sync_physics_to_kinematics i:", i, " pos:", self.physics_joint[i].getAnchor())
                 self.joints[i].setQuat(self.render, self.physics_body[i].getQuaternion())
         # 这段是防止根节点的父关节是None的情况  
         self.joints[0].setPosQuat(self.render, self.physics_body[0].getPosition(), self.physics_body[0].getQuaternion())
@@ -489,6 +499,26 @@ class SimpleViewer(ShowBase):
         self.parent_index = info['parent'][:real_len]
         self.init_joint_pos = self.get_joint_positions()
         self.offset = self.get_body_positions() - self.get_joint_positions()
+
+        self.myBody = OdeBody(self.world)
+        self.myBody.setPosition((0, 2, 0))
+        # myBody.setQuaternion(somePandaObject.getQuat(render))
+        self.myMass = OdeMass()
+        # myMass.setBox(11340, 1, 1, 1)
+        self.myMass.setBox(1000, 1, 1, 1)
+        self.myBody.setMass(self.myMass)
+        self.myBody.addForce((2000, 0, 0))
+
+        box = self.loader.loadModel("material/GroundScene.egg")
+        node = self.render.attachNewNode(f"myBody")
+        box.reparentTo(node)
+
+        # add texture
+        box.setTextureOff(1)
+        box.setTexture(self.tex, 1)
+        box.setScale(1000)
+
+        node.setPos(self.render, (0,0,0))
 
     def set_pose(self, joint_name, joint_translation, joint_orientation):
         

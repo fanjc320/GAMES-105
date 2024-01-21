@@ -205,6 +205,7 @@ class SimpleViewer(ShowBase):
         self.update_flag = not self.update_flag
         
     def create_texture(self, color, name):
+        # 图片的存储格式之一是PNM——实际上是PBM、PGM、PPM三种格式的统称。这三种格式的语法很接近，分别对就黑白图片、灰度图片和彩色图片。
         img = pc.PNMImage(32,32)
         img.fill(*color[:3])
         img.alphaFill(color[3])
@@ -295,10 +296,11 @@ class SimpleViewer(ShowBase):
     def create_link(self, link_id, position, scale, rot):
         # create a link
         box = self.loader.loadModel("material/GroundScene.egg")
-        node = self.render.attachNewNode(f"link{link_id}")
+        # node = self.render.attachNewNode(f"link{link_id}")
+        node = self.render.attachNewNode(f"ttt{link_id}")
         box.reparentTo(node)
-        
-        # add texture
+        #
+        # # add texture
         box.setTextureOff(1)
         box.setTexture(self.tex,1)
         box.setScale(*scale)
