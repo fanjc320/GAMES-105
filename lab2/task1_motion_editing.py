@@ -47,6 +47,10 @@ def part1_translation_and_rotation(viewer, setting_id):
     frame = frame_list[setting_id]
 
     original_motion = BVHMotion(bvh)
+    # fjc test
+    pos = [0,0]
+    facing_xz = [1, 1]
+    print("part1_translation_and_rotation facing_xz:" , facing_xz , " pos:" , pos)
     new_motion = original_motion.translation_and_rotation(frame, pos, facing_xz)
     
     translation, orientation = new_motion.batch_forward_kinematics()
@@ -70,7 +74,7 @@ def part2_interpolate(viewer, v):
     run_forward = run_forward.translation_and_rotation(0, np.array([0,0]), np.array([0,1]))
     
     # 计算插值系数
-    v1 = (walk_forward.joint_position[-1,0,2] / walk_forward.motion_length)*60
+    v1 = (walk_forward.joint_position[-1,0,2] / walk_forward.motion_length)*60 #????? -1,0,2哪来的??????
     v2 = (run_forward.joint_position[-1,0,2] / run_forward.motion_length)*60
     blend_weight = (v-v1)/(v2-v1)
     distance = (1-blend_weight)*walk_forward.joint_position[-1,0,2] + blend_weight*run_forward.joint_position[-1,0,2]
@@ -91,9 +95,10 @@ def part3_build_loop(viewer):
     motion = BVHMotion('motion_material/run_forward.bvh')
     motion = build_loop_motion(motion)
     
-    pos = motion.joint_position[-1,0,[0,2]]
-    rot = motion.joint_rotation[-1,0]
-    facing_axis = R.from_quat(rot).apply(np.array([0,0,1])).flatten()[[0,2]]
+    pos = motion.joint_position[-1,0,[0,2]] # (45,25, 3), 最后一次的所有关节的位置，取0即根节点, x和z pos:[-4.23155,-0.91551]
+    rot = motion.joint_rotation[-1,0] # # (45,25, 3), 最后一次的所有关节旋转中取0即根节点
+    tmp = R.from_quat(rot).apply(np.array([0, 0, 1]))
+    facing_axis = R.from_quat(rot).apply(np.array([0,0,1])).flatten()[[0,2]] # 0,0,1是啥意思? [0.65305,0.73884]
     new_motion = motion.translation_and_rotation(0, pos, facing_axis)
     motion.append(new_motion)
     translation, orientation = motion.batch_forward_kinematics()
@@ -135,9 +140,9 @@ def main():
     # 请自行取消需要的注释并更改测试setting_id
     # 请不要同时取消多个注释，否则前者会被后者覆盖
     
-    # part1_translation_and_rotation(viewer, 0) # 数字代表不同的测试setting
+    part1_translation_and_rotation(viewer, 0) # 数字代表不同的测试setting
     # part2_interpolate(viewer, 1) # 数字代表不同期望的前进速度
-    part3_build_loop(viewer)
+    # part3_build_loop(viewer)
     # part4_concatenate(viewer, 0) # 数字代表不同的测试setting
     viewer.run()
     

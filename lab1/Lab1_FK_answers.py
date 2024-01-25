@@ -67,10 +67,7 @@ def part1_calculate_T_pose(bvh_file_path):
             if bvh_file[i].startswith('ROOT'):
                 line = i
                 parse_hierarchy(-1)
-<<<<<<< HEAD
-=======
 
->>>>>>> af6530764a7f641248dfe8c3bb8f580a2a5fba89
     return joint_name, joint_parent, joint_offset
 
 
@@ -101,10 +98,7 @@ def part2_forward_kinematics(joint_name, joint_parent, joint_offset, motion_data
         if joint_name[i].endswith('_end'):
             cur_rotate = R.from_euler('XYZ', [0., 0., 0.], degrees=True)
         else:
-<<<<<<< HEAD
-=======
             # tmp = 3 + frame_count * 3: 6 + frame_count * 3
->>>>>>> af6530764a7f641248dfe8c3bb8f580a2a5fba89
             cur_rotate = R.from_euler('XYZ', motion_data[frame_id][3 + frame_count * 3: 6 + frame_count * 3],
                                       degrees=True)
             frame_count += 1
@@ -112,12 +106,7 @@ def part2_forward_kinematics(joint_name, joint_parent, joint_offset, motion_data
         p_orient = R.from_quat(joint_orientations[p])
         joint_orientations[i] = (p_orient * cur_rotate).as_quat()
         joint_positions[i] = joint_positions[p] + np.dot(R.from_quat(joint_orientations[p]).as_matrix(),
-<<<<<<< HEAD
-                                                         joint_offset[i])
-=======
                                                          joint_offset[i]) # ???????，
->>>>>>> af6530764a7f641248dfe8c3bb8f580a2a5fba89
-
     return joint_positions, joint_orientations
 
 

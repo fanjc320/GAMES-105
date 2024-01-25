@@ -73,7 +73,7 @@ def part2_root_force(viewer, setting=0):
     
     pd_controller = PDController(viewer)
     idx_map = lambda x: x//viewer.substep if setting == 1 else 0
-    pd_controller.get_pose = lambda x: (motion.joint_position[idx_map(x)], motion.joint_rotation[idx_map(x)], setting)
+    pd_controller.get_pose = lambda x: (motion.joint_position[idx_map(x)], motion.joint_rotation[idx_map(x)], setting) #??????
     viewer.pre_simulation_func = pd_controller.apply_root_force_and_torque
     pass
 
@@ -98,7 +98,7 @@ def main():
     viewer.show_axis_frame()
     
     # part1_pd_control(viewer, 0) # 数字代表不同的测试setting
-    part2_root_force(viewer, 0)
+    part2_root_force(viewer, 1)
     # part3_static_balance(viewer, 0)
     viewer.run()
     

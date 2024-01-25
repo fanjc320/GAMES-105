@@ -369,10 +369,10 @@ class SimpleViewer(ShowBase):
             self.world.step(1/(60*self.substep))
             self.contactgroup.empty()
 
-            x, y, z = self.myBody.getPosition()
-            u, v, w = self.myBody.getLinearVel()
-            print("%1.2fsec: pos=(%6.3f, %6.3f, %6.3f)  vel=(%6.3f, %6.3f, %6.3f)" % \
-                  (total_time, x, y, z, u, v, w))
+            # x, y, z = self.myBody.getPosition()
+            # u, v, w = self.myBody.getLinearVel()
+            # print("%1.2fsec: pos=(%6.3f, %6.3f, %6.3f)  vel=(%6.3f, %6.3f, %6.3f)" % \
+            #       (total_time, x, y, z, u, v, w))
 
             if rendering:
                 self.sync_physics_to_kinematics()

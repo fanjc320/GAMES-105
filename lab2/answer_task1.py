@@ -126,7 +126,7 @@ class BVHMotion():
         
         return
 
-    def batch_forward_kinematics(self, joint_position = None, joint_rotation = None):
+    def batch_forward_kinematics(self, joint_position = None, joint_rotation = None): # 对25个关节一起操作
         '''
         利用自身的metadata进行批量前向运动学
         joint_position: (N,M,3)的ndarray, 局部平移
@@ -148,7 +148,7 @@ class BVHMotion():
             pi = self.joint_parent[i]
             parent_orientation = R.from_quat(joint_orientation[:,pi,:]) 
             joint_translation[:, i, :] = joint_translation[:, pi, :] + \
-                parent_orientation.apply(joint_position[:, i, :])
+                parent_orientation.apply(joint_position[:, i, :])  # 子关节的位移 等于父关节位置+朝向 * 关节位置!!!!!!
             joint_orientation[:, i, :] = (parent_orientation * R.from_quat(joint_rotation[:, i, :])).as_quat()
         return joint_translation, joint_orientation
     
@@ -201,28 +201,55 @@ class BVHMotion():
     
     #--------------------- 你的任务 -------------------- #
 
+    # @staticmethod
+    # def decompose_rotation_with_yaxis(rotation): # 原本根节点的旋转quartanion
+    #     '''
+    #     输入: rotation 形状为(4,)的ndarray, 四元数旋转
+    #     输出: Ry, Rxz，分别为绕y轴的旋转和转轴在xz平面的旋转，并满足R = Ry * Rxz
+    #     '''
+    #     euler = R.from_quat(rotation).as_euler('XYZ', degrees=True)
+    #     print("decompose_rotation_with_yaxis rotation euler:", euler)
+    #     Ry = np.zeros_like(rotation)
+    #     Rxz = np.zeros_like(rotation)
+    #     # TODO: 你的代码
+    #     rotation_matrix = R.from_quat(rotation).as_matrix()
+    #     R1 = rotation_matrix[:, 1] # ???? 旋转后的y轴在固定坐标系三个坐标轴xyz上的投影分量，或者说新的单位y轴在固定空间的坐标；y为上，这里是拿到"上"的朝向。
+    #     y_axis = np.array([0., 1., 0.]) # 老空间，即固定坐标系的 y轴
+    #     rot_axis = np.cross(R1, y_axis) # 叉乘得到转轴，注意是表示新y轴向量到老y轴的旋转，而非相反,
+    #     print("decompose_rotation_with_yaxis rotation_matrix:", rotation_matrix)
+    #     print("decompose_rotation_with_yaxis R1:", R1)
+    #     print("decompose_rotation_with_yaxis rot_axis:", rot_axis) # rot_axis: [-0.14020839  0.          0.10673311]
+    #     theta = np.arccos(np.dot(R1, y_axis) / np.linalg.norm(R1)) # 新老y轴的夹角
+    #     if theta == 0.:   #?????
+    #         return [1., 0., 0., 0.], rotation
+    #     # 长度等于旋转角 https://zhuanlan.zhihu.com/p/93563218
+    #     R_prime = R.from_rotvec(theta * rot_axis / np.linalg.norm(rot_axis)) #从新老y轴的夹角和转轴得到旋转向量，代表从老y轴(及固定坐标的y轴)到新y轴(rotation的y轴)的旋转
+    #     Ry = (R_prime * R.from_quat(rotation)).as_quat()#????
+    #     print("decompose_rotation_with_yaxis R_prime euler:", R_prime.as_euler('XYZ', degrees=True))
+    #     print("decompose_rotation_with_yaxis Ry euler:", R.from_quat(Ry).as_euler('XYZ', degrees=True))
+    #     Rxz = (R.from_quat(Ry).inv() * R.from_quat(rotation)).as_quat() #????
+    #     print("decompose_rotation_with_yaxis Rxz euler:", R.from_quat(Rxz).as_euler('XYZ', degrees=True))
+    #     return Ry, Rxz
+
     @staticmethod
+    # def decompose_rotation_with_yaxis(self, rotation):
     def decompose_rotation_with_yaxis(rotation):
         '''
         输入: rotation 形状为(4,)的ndarray, 四元数旋转
         输出: Ry, Rxz，分别为绕y轴的旋转和转轴在xz平面的旋转，并满足R = Ry * Rxz
         '''
-        Ry = np.zeros_like(rotation)
-        Rxz = np.zeros_like(rotation)
         # TODO: 你的代码
-        rotation_matrix = R.from_quat(rotation).as_matrix()
-        R1 = rotation_matrix[:, 1] # ???????
-        y_axis = np.array([0., 1., 0.])
-        rot_axis = np.cross(R1, y_axis)
-        theta = np.arccos(np.dot(R1, y_axis) / np.linalg.norm(R1))
-        if theta == 0.:   #?????
-            return [1., 0., 0., 0.], rotation
-        R_prime = R.from_rotvec(theta * rot_axis / np.linalg.norm(rot_axis)) #????
-        Ry = (R_prime * R.from_quat(rotation)).as_quat()
-        Rxz = (R.from_quat(Ry).inv() * R.from_quat(rotation)).as_quat() #????
+        # 将四元数旋转分解为绕y轴的旋转，和转轴在xz平面的旋转，先得到Ry，再逆运算得到Rxz
+        Ry = R.from_quat(rotation).as_euler("XYZ", degrees=True)
+        print("decompose_rotation_with_yaxis Ry euler:", Ry) # decompose_rotation_with_yaxis Ry euler: [45. 45. 45.]
+        Ry = R.from_euler("XYZ", [0, Ry[1], 0], degrees=True)
+        print("decompose_rotation_with_yaxis Ry euler:", Ry.as_euler("XYZ", degrees=True)) # decompose_rotation_with_yaxis Ry euler: [ 0. 45.  0.]
 
+        Rxz = Ry.inv() * R.from_quat(rotation)
+        # print("decompose_rotation_with_yaxis Rxz euler:", R.from_quat(Rxz).as_euler('XYZ'))
+        print("decompose_rotation_with_yaxis Rxz euler:", Rxz.as_euler("XYZ", degrees=True)) # decompose_rotation_with_yaxis Rxz euler: [30.3611934   8.42105812 75.3611934 ]
         return Ry, Rxz
-    
+
     # part 1
     def translation_and_rotation(self, frame_num, target_translation_xz, target_facing_direction_xz):
         '''
@@ -245,27 +272,65 @@ class BVHMotion():
         res.joint_position[:, 0, [0,2]] += offset
         # TODO: 你的代码
         # 把第frame_num帧的根节点的face转到target
-        Ry, _ = self.decompose_rotation_with_yaxis(res.joint_rotation[frame_num, 0, :])
-        rot_target = np.array([target_facing_direction_xz[0], 0, target_facing_direction_xz[1]])
-        # source是Ry的z轴，target是目标的z轴，旋转轴是y轴
-        rot_source = R.from_quat(Ry).as_matrix()[:, 2]
+        Ry, _ = self.decompose_rotation_with_yaxis(res.joint_rotation[frame_num, 0, :])# 第frame_mum帧，根节点的旋转即朝向;Ry是木偶人y轴的旋转,可通过矩阵取z拿到朝向!!
+        print("translation_and_rotation Ry euler:", Ry.as_euler('XYZ', degrees=True)) # Ry是rotation # translation_and_rotation Ry euler: [ 0.       -8.135959  0.      ]
+        # print("translation_and_rotation Ry euler:", R.from_quat(Ry).as_euler('XYZ', degrees=True)) # Ry是quartanion
+        # translation_and_rotation Ry euler: [0.         0.71361138 0.]
+        rot_target = np.array([target_facing_direction_xz[0], 0, target_facing_direction_xz[1]]) ### 旋转的方向中y轴旋转，在xz面转向，方向向量只有x,z
+        # source是Ry的z轴，target是目标的z轴，旋转轴是y轴!!!!!!!!!!!!
+        # rot_source = R.from_quat(Ry).as_matrix()[:, 2] # 旋转矩阵可看作新空间向量(1,1,1)，在老空间三个坐标轴的投影，现在只取z的投影,因为把z轴看做前方!!!!!
+        rot_source = Ry.as_matrix()[:, 2] ### 只去z轴的朝向，因为z代表"前方", 应该是木偶人根节点y轴在世界坐标下的z轴的投影,即木偶人的朝向,Ry是木偶人根节点y轴朝向.
+        Ry_matrix = Ry.as_matrix()
+        print("translation_and_rotation Ry_matrix:", Ry_matrix)
         rot_target = rot_target / np.linalg.norm(rot_target)
         rot_source = rot_source / np.linalg.norm(rot_source)
-        rot_axis = np.cross(rot_source, rot_target)
+        rot_axis = np.cross(rot_source, rot_target) # 旋转轴通过叉乘得到, 用来判断y旋转的正负
+        # Ry_matrix = R.from_quat(Ry).as_matrix()
+        # print("translation_and_rotation Ry_matrix:", Ry_matrix)
+        print("translation_and_rotation rot_source:", rot_source)
+        print("translation_and_rotation rot_target:", rot_target)
+        print("translation_and_rotation rot_axis:", rot_axis)
+
+        # decompose_rotation_with_yaxis rotation euler: [-1.425206 -8.135959 -1.141766]
+        # decompose_rotation_with_yaxis rotation_matrix: [[ 0.98973848  0.0197257  -0.14152255]
+        #  [-0.01640085  0.9995623   0.02462164]
+        #  [ 0.14194628 -0.02204789  0.98962879]]
+        # decompose_rotation_with_yaxis R1: [ 0.0197257   0.9995623  -0.02204789]
+        # decompose_rotation_with_yaxis rot_axis: [ 0.02204789 -0.          0.0197257 ]
+        # decompose_rotation_with_yaxis R_prime euler: [1.26335354 0.01246198 1.13027269]
+        # decompose_rotation_with_yaxis Ry euler: [-1.01777750e-13 -8.15001747e+00 -5.08888749e-14]
+        # decompose_rotation_with_yaxis Rxz euler: [-1.41085846  0.011571   -0.93974146]
+        # translation_and_rotation Ry_matrix: [[ 9.89900278e-01  1.03735476e-15 -1.41765439e-01]
+        #  [-8.61258471e-16  1.00000000e+00  1.30352479e-15]
+        #  [ 1.41765439e-01 -1.16826287e-15  9.89900278e-01]]
+        # translation_and_rotation rot_source: [-1.41765439e-01  1.30352479e-15  9.89900278e-01]
+        # translation_and_rotation rot_target: [0.70710678 0.         0.70710678]
+        # translation_and_rotation rot_axis: [ 9.21731218e-16  8.00208502e-01 -9.21731218e-16]
+        #
+
         # 虽然理论上rot_axis就是y轴，但是float的精度问题，必须重新设置为y轴，不然人物会飞
-        if rot_axis[1] > 0.:
+        if rot_axis[1] > 0.:   # 判断y旋转的正负, 是向左走，还是向右走
             rot_axis = np.array([0., 1., 0.])
         else:
             rot_axis = np.array([0., -1., 0.])
-        theta = np.arccos(np.dot(rot_source, rot_target))
-        delta_rotation = R.from_rotvec(theta * rot_axis)
+        theta = np.arccos(np.dot(rot_source, rot_target)) #
+        delta_rotation = R.from_rotvec(theta * rot_axis) # 旋转向量，方向为y
 
         # 修改orientation
         res.joint_rotation[:, 0, :] = np.apply_along_axis(lambda q: (delta_rotation * R.from_quat(q)).as_quat(), axis=1,
+                                                          arr=res.joint_rotation[:, 0, :]) # 对所有关节修改朝向
+
+        look_apply_along_axis = np.apply_along_axis(lambda q: q, axis=1,
                                                           arr=res.joint_rotation[:, 0, :])
 
+        print("translation_and_rotation res.joint_rotation[:, 0, :].shape:", res.joint_rotation[:, 0, :].shape, " res.joint_rotation[:, 0, :]:", res.joint_rotation[:, 0, :])
+        print("translation_and_rotation look_apply_along_axis.shape:", look_apply_along_axis.shape, " look_apply_along_axis:", look_apply_along_axis)
+        look_apply_along_axis_0 = np.apply_along_axis(lambda q: q, axis=0,
+                                                    arr=res.joint_rotation[:, 0, :])
+        print("translation_and_rotation look_apply_along_axis_0.shape:", look_apply_along_axis_0.shape,
+              " look_apply_along_axis_0:", look_apply_along_axis_0)
         # 修改position
-        offset_center = res.joint_position[frame_num, 0, [0, 2]]
+        offset_center = res.joint_position[frame_num, 0, [0, 2]] # 修改根节点的x,z的位置，让其"移动"
         res.joint_position[:, 0, [0, 2]] -= offset_center
         res.joint_position[:, 0, :] = np.apply_along_axis(delta_rotation.apply, axis=1, arr=res.joint_position[:, 0, :])
         res.joint_position[:, 0, [0, 2]] += offset_center
@@ -413,3 +478,50 @@ def concatenate_two_motions(bvh_motion1, bvh_motion2, mix_frame1, mix_time):
 
 # https://github.com/Cltsu/GAMES105/blob/main/lab2/answer_task1.py
 # Decomposing a matrix(用于分解变换矩阵至旋转、平移，缩放分量) https://blog.csdn.net/GISsirclyx/article/details/4730543
+
+def test_decompose_rotation_with_yaxis():
+    # rotation = R.from_euler('XYZ', [0,0,45], degrees=True)
+    # decompose_rotation_with_yaxis rotation euler: [ 0.  0. 45.]
+    # decompose_rotation_with_yaxis rotation_matrix: [[ 0.70710678 -0.70710678  0.        ]
+    #  [ 0.70710678  0.70710678  0.        ]
+    #  [ 0.          0.          1.        ]]
+    # decompose_rotation_with_yaxis R1: [-0.70710678  0.70710678  0.        ]
+    # decompose_rotation_with_yaxis rot_axis: [ 0.          0.         -0.70710678]
+    # decompose_rotation_with_yaxis R_prime euler: [  0.   0. -45.]
+    # decompose_rotation_with_yaxis Ry euler: [0. 0. 0.]
+    # decompose_rotation_with_yaxis Rxz euler: [ 0.  0. 45.]
+    # -------------------------------------------
+    rotation = R.from_euler('XYZ', [45,0,0], degrees=True)
+    # decompose_rotation_with_yaxis rotation euler: [45.  0.  0.]
+    # decompose_rotation_with_yaxis rotation_matrix: [[ 1.          0.          0.        ]
+    #  [ 0.          0.70710678 -0.70710678]
+    #  [ 0.          0.70710678  0.70710678]]
+    # decompose_rotation_with_yaxis R1: [0.         0.70710678 0.70710678]
+    # decompose_rotation_with_yaxis rot_axis: [-0.70710678  0.          0.        ]
+    # decompose_rotation_with_yaxis R_prime euler: [-45.   0.   0.]
+    # decompose_rotation_with_yaxis Ry euler: [0. 0. 0.]
+    # decompose_rotation_with_yaxis Rxz euler: [45.  0.  0.]
+    # --------------------------------------------
+    # rotation = R.from_euler('XYZ', [0,45,0], degrees=True)
+    # decompose_rotation_with_yaxis rotation euler: [ 0. 45.  0.]
+    # decompose_rotation_with_yaxis rotation_matrix: [[ 0.70710678  0.          0.70710678]
+    #  [ 0.          1.          0.        ]
+    #  [-0.70710678  0.          0.70710678]]
+    # decompose_rotation_with_yaxis R1: [0. 1. 0.]
+    # decompose_rotation_with_yaxis rot_axis: [0. 0. 0.]
+    # --------------------------------------------
+    rotation = R.from_euler('XYZ', [45, 45, 45], degrees=True)
+    # decompose_rotation_with_yaxis rotation euler: [45. 45. 45.]
+    # decompose_rotation_with_yaxis rotation_matrix: [[ 0.5        -0.5         0.70710678]
+    #  [ 0.85355339  0.14644661 -0.5       ]
+    #  [ 0.14644661  0.85355339  0.5       ]]
+    # decompose_rotation_with_yaxis R1: [-0.5         0.14644661  0.85355339]
+    # decompose_rotation_with_yaxis rot_axis: [-0.85355339  0.         -0.5       ]
+    # decompose_rotation_with_yaxis R_prime euler: [-66.87499616  21.85509089 -32.59645168]
+    # decompose_rotation_with_yaxis Ry euler: [ 0.         29.27761319  0.        ]
+    # decompose_rotation_with_yaxis Rxz euler: [32.59645168 21.85509089 66.87499616]
+    # ----------------------------------------------
+    BVHMotion.decompose_rotation_with_yaxis(rotation.as_quat())
+
+
+test_decompose_rotation_with_yaxis()
