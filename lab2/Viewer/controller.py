@@ -103,6 +103,7 @@ class InterpolationHelper():
         pos = eydt * ( -tmp2 -tmp1/d ) + tmp2 + j0/d + target_vel*dt + pos_prev
         vel = eydt*tmp1 + target_vel
         acc = eydt * (acc - j1*d*dt)
+        print("simulation_positions_update pos:{}, vel:{}, acc:{}, target_vel:{}, halflife:{}, dt:{}".format( pos, vel, acc, target_vel, halflife, dt))
         return pos, vel, acc
     @staticmethod
     def simulation_rotations_update(rot, avel, target_rot, halflife, dt):
@@ -219,7 +220,7 @@ class Controller:
         
         fwrd_speed, side_speed, back_speed = self.move_speed
         
-        angle = np.arctan2(camera_to_pos[0], camera_to_pos[2])
+        angle = np.arctan2(camera_to_pos[0], camera_to_pos[2]) # ????
         rot = R.from_rotvec( angle * np.array([0,1,0]) )
         global_direction = rot.apply(input_vel)
         
@@ -244,6 +245,7 @@ class Controller:
         node = self.node.attach_new_node('camera_pos')
         node.setPos(0, 3, -5)
         self.cameractrl.position = node.getPos(self.viewer.render)
+        print("init_key_input self.cameractrl.position:", self.cameractrl.position)
         self.camera_ref_pos = node
         self.camera_ref_pos.wrtReparentTo(self.node)
         self.line = LineSegs()
@@ -313,6 +315,8 @@ class Controller:
         for i in range(self.future_step):
             self.futures[i].set_pos(*position_trajectory[i])
             self.futures[i].set_quat( Quat(*rotation_trajectory[i]) )
+            if i == 0:
+                print("Controller update_pos i:", i, " pos:", *position_trajectory[i], " quat:",  *rotation_trajectory[i])
         
         # update camera positions
         delta = position_trajectory[0] - init_pos
@@ -326,6 +330,7 @@ class Controller:
         self.line.set_color(240/255,31/255,141/255,0.1)
         self.line.setThickness(3)
         positions = [np.array(self.futures[i].get_pos()) for i in range(self.future_step)]
+        # print("draw_future positions:", positions)
         self.line.moveTo(*positions[0])
         for i in positions[1:]:
             self.line.drawTo(i[0], i[1], i[2])
@@ -336,13 +341,17 @@ class Controller:
         self.update_pos()
         self.draw_future()
         return task.cont
-    
+
+    # tmp = 1
     def set_pos(self, pos):
-        
         init_pos = self.node.get_pos()
         pos = pos.copy()
         pos[1] = 0.01
         self.node.set_pos(*pos)
+        # global tmp
+        # if tmp < 5:
+        #     self.node.set_pos(*pos)
+            # tmp += 1
 
         delta = pos - init_pos
         delta = LVector3(*delta)

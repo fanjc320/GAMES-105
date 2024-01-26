@@ -19,6 +19,7 @@ class InteractiveUpdate():
                 )
         for i in range(len(character_state[0])):
             name, pos, rot = character_state[0][i], character_state[1][i], character_state[2][i]
+            # print("InteractiveUpdate i:", i, " name:", name, " pos:",pos, " rot:", rot)
             self.viewer.set_joint_position_orientation(name, pos, rot)
         return task.cont    
 

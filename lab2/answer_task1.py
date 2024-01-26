@@ -427,57 +427,132 @@ def nearest_frame(motion, target_pose):
             min_dis = dis
     return ret
 # part4
+# def concatenate_two_motions(bvh_motion1, bvh_motion2, mix_frame1, mix_time):
+#     '''
+#     将两个bvh动作平滑地连接起来，mix_time表示用于混合的帧数
+#     混合开始时间是第一个动作的第mix_frame1帧
+#     虽然某些混合方法可能不需要mix_time，但是为了保证接口一致，我们还是保留这个参数
+#     Tips:
+#         你可能需要用到BVHMotion.sub_sequence 和 BVHMotion.append
+#     '''
+#     res = bvh_motion1.raw_copy()
+#
+#     # TODO: 你的代码
+#     # 下面这种直接拼肯定是不行的(
+#     # res.joint_position = np.concatenate([res.joint_position[:mix_frame1], bvh_motion2.joint_position], axis=0)
+#     # res.joint_rotation = np.concatenate([res.joint_rotation[:mix_frame1], bvh_motion2.joint_rotation], axis=0)
+#     # 将bvh2设置为循环动作
+#     bvh_motion2 = build_loop_motion(bvh_motion2)
+#     motion = bvh_motion2
+#     pos = motion.joint_position[-1, 0, [0, 2]]
+#     rot = motion.joint_rotation[-1, 0]
+#     facing_axis = R.from_quat(rot).apply(np.array([0, 0, 1])).flatten()[[0, 2]]
+#     new_motion = motion.translation_and_rotation(0, pos, facing_axis)
+#     bvh_motion2.append(new_motion)
+#
+#     start_frame2 = nearest_frame(bvh_motion2, bvh_motion1.joint_rotation[mix_frame1])
+#     translation_xz = bvh_motion1.joint_position[mix_frame1, 0, [0, 2]]
+#     Ry, _ = bvh_motion1.decompose_rotation_with_yaxis(bvh_motion1.joint_rotation[mix_frame1, 0, :])
+#     facing_direction_xz = R.from_quat(Ry).as_matrix()[2, [0, 2]]
+#     facing_direction_xz = [0, 1.0]
+#     bvh_motion2 = bvh_motion2.translation_and_rotation(start_frame2, translation_xz, facing_direction_xz)
+#
+#     cur_mix_frame1 = mix_frame1
+#     cur_mix_frame2 = start_frame2
+#     for i in range(mix_time):
+#         cur_mix_frame1 += 1
+#         cur_mix_frame2 += 1
+#         res.joint_rotation[cur_mix_frame1], res.joint_position[cur_mix_frame1] = get_interpolate_pose( \
+#             res.joint_rotation[cur_mix_frame1],
+#             bvh_motion2.joint_rotation[cur_mix_frame2],
+#             res.joint_position[cur_mix_frame1],
+#             bvh_motion2.joint_position[cur_mix_frame2],
+#             (i + 1.) / mix_time)
+#
+#     res.joint_position = np.concatenate(
+#         [res.joint_position[:cur_mix_frame1], bvh_motion2.joint_position[cur_mix_frame2:]], axis=0)
+#     res.joint_rotation = np.concatenate(
+#         [res.joint_rotation[:cur_mix_frame1], bvh_motion2.joint_rotation[cur_mix_frame2:]], axis=0)
+#
+#     return res
+
+# https://github.com/Cltsu/GAMES105/blob/main/lab2/answer_task1.py
+# Decomposing a matrix(用于分解变换矩阵至旋转、平移，缩放分量) https://blog.csdn.net/GISsirclyx/article/details/4730543
+
+# part4
 def concatenate_two_motions(bvh_motion1, bvh_motion2, mix_frame1, mix_time):
     '''
     将两个bvh动作平滑地连接起来，mix_time表示用于混合的帧数
-    混合开始时间是第一个动作的第mix_frame1帧
+    混合开始时间是第一个动作的第mix_frame1帧,
     虽然某些混合方法可能不需要mix_time，但是为了保证接口一致，我们还是保留这个参数
     Tips:
         你可能需要用到BVHMotion.sub_sequence 和 BVHMotion.append
     '''
     res = bvh_motion1.raw_copy()
-    
+
     # TODO: 你的代码
     # 下面这种直接拼肯定是不行的(
-    # res.joint_position = np.concatenate([res.joint_position[:mix_frame1], bvh_motion2.joint_position], axis=0)
-    # res.joint_rotation = np.concatenate([res.joint_rotation[:mix_frame1], bvh_motion2.joint_rotation], axis=0)
-    # 将bvh2设置为循环动作
-    bvh_motion2 = build_loop_motion(bvh_motion2)
-    motion = bvh_motion2
-    pos = motion.joint_position[-1, 0, [0, 2]]
-    rot = motion.joint_rotation[-1, 0]
+    # 从mix_frame1截断， 先播放frame1，再播放frame2，这种肯定是不对的，最起码对动作进行一个转换，对吧
+
+    # 从mix_frame开始的动作到新动作的第一帧对齐
+    rot = bvh_motion1.joint_rotation[mix_frame1, 0]
     facing_axis = R.from_quat(rot).apply(np.array([0, 0, 1])).flatten()[[0, 2]]
-    new_motion = motion.translation_and_rotation(0, pos, facing_axis)
-    bvh_motion2.append(new_motion)
 
-    start_frame2 = nearest_frame(bvh_motion2, bvh_motion1.joint_rotation[mix_frame1])
-    translation_xz = bvh_motion1.joint_position[mix_frame1, 0, [0, 2]]
-    Ry, _ = bvh_motion1.decompose_rotation_with_yaxis(bvh_motion1.joint_rotation[mix_frame1, 0, :])
-    facing_direction_xz = R.from_quat(Ry).as_matrix()[2, [0, 2]]
-    facing_direction_xz = [0, 1.0]
-    bvh_motion2 = bvh_motion2.translation_and_rotation(start_frame2, translation_xz, facing_direction_xz)
+    new_bvh_motion2 = bvh_motion2.translation_and_rotation(0, bvh_motion1.joint_position[mix_frame1, 0, [0, 2]],
+                                                           facing_axis)
 
-    cur_mix_frame1 = mix_frame1
-    cur_mix_frame2 = start_frame2
-    for i in range(mix_time):
-        cur_mix_frame1 += 1
-        cur_mix_frame2 += 1
-        res.joint_rotation[cur_mix_frame1], res.joint_position[cur_mix_frame1] = get_interpolate_pose( \
-            res.joint_rotation[cur_mix_frame1],
-            bvh_motion2.joint_rotation[cur_mix_frame2],
-            res.joint_position[cur_mix_frame1],
-            bvh_motion2.joint_position[cur_mix_frame2],
-            (i + 1.) / mix_time)
+    # 进行动画blending,分别使用惯性混合和线性插值方法
+    blending_joint_position = np.zeros(
+        (mix_time, new_bvh_motion2.joint_position.shape[1], new_bvh_motion2.joint_position.shape[2]))
+    blending_joint_rotation = np.zeros(
+        (mix_time, new_bvh_motion2.joint_rotation.shape[1], new_bvh_motion2.joint_rotation.shape[2]))
+    blending_joint_rotation[..., 3] = 1.0
 
-    res.joint_position = np.concatenate(
-        [res.joint_position[:cur_mix_frame1], bvh_motion2.joint_position[cur_mix_frame2:]], axis=0)
-    res.joint_rotation = np.concatenate(
-        [res.joint_rotation[:cur_mix_frame1], bvh_motion2.joint_rotation[cur_mix_frame2:]], axis=0)
+    # 惯性方法： inertialize
+    half_time = 0.3
+    dt = 1 / 60
+    y = 4.0 * 0.69314 / (half_time + 1e-5)
+
+    from smooth_utils import quat_to_avel
+    src_avel = quat_to_avel(bvh_motion1.joint_rotation[mix_frame1 - 15:mix_frame1], dt)
+    dst_avel = quat_to_avel(new_bvh_motion2.joint_rotation[0:15], dt)
+    off_avel = src_avel[-1] - dst_avel[0]
+    off_rot = (R.from_quat(bvh_motion1.joint_rotation[mix_frame1]) * R.from_quat(
+        new_bvh_motion2.joint_rotation[0].copy()).inv()).as_rotvec()
+
+    src_vel = bvh_motion1.joint_position[mix_frame1] - bvh_motion1.joint_position[mix_frame1 - 1]
+    dst_vel = new_bvh_motion2.joint_position[1] - new_bvh_motion2.joint_position[0]
+    off_vel = (src_vel - dst_vel) / 60
+    off_pos = bvh_motion1.joint_position[mix_frame1] - new_bvh_motion2.joint_position[0]
+
+    for i in range(len(new_bvh_motion2.joint_position)):
+        tmp_ydt = y * i * dt
+        eydt = np.exp(-tmp_ydt)
+        # eydt = 1.0 / (1.0 + tmp_ydt + 0.48 * tmp_ydt * tmp_ydt + 0.235 * tmp_ydt * tmp_ydt * tmp_ydt)
+        j1 = off_vel + off_pos * y
+        j2 = off_avel + off_rot * y
+        off_pos_i = eydt * (off_pos + j1 * i * dt)
+        off_vel_i = eydt * (off_vel - j1 * y * i * dt)
+        off_rot_i = R.from_rotvec(eydt * (off_rot + j2 * i * dt)).as_rotvec()
+        off_avel_i = eydt * (off_avel - j2 * y * i * dt)
+
+        new_bvh_motion2.joint_position[i] = new_bvh_motion2.joint_position[i] + off_pos_i
+        new_bvh_motion2.joint_rotation[i] = (
+                    R.from_rotvec(off_rot_i) * R.from_quat(new_bvh_motion2.joint_rotation[i])).as_quat()
+
+    # # 线性blending，动画增加30帧
+    # for i in range(mix_time):
+    #     t = i / mix_time
+    #     blending_joint_position[i] = (1-t) * res.joint_position[mix_frame1] + t * new_bvh_motion2.joint_position[0]
+    #     for j in range(len(res.joint_rotation[mix_frame1])):
+    #         blending_joint_rotation[i, j] = slerp(res.joint_rotation[mix_frame1,j], new_bvh_motion2.joint_rotation[0,j], t)
+    # new_bvh_motion2.joint_position = np.concatenate([blending_joint_position,  new_bvh_motion2.joint_position], axis=0)
+    # new_bvh_motion2.joint_rotation = np.concatenate([blending_joint_rotation,  new_bvh_motion2.joint_rotation], axis=0)
+
+    res.joint_position = np.concatenate([res.joint_position[:mix_frame1], new_bvh_motion2.joint_position], axis=0)
+    res.joint_rotation = np.concatenate([res.joint_rotation[:mix_frame1], new_bvh_motion2.joint_rotation], axis=0)
 
     return res
-
-# https://github.com/Cltsu/GAMES105/blob/main/lab2/answer_task1.py
-# Decomposing a matrix(用于分解变换矩阵至旋转、平移，缩放分量) https://blog.csdn.net/GISsirclyx/article/details/4730543
 
 def test_decompose_rotation_with_yaxis():
     # rotation = R.from_euler('XYZ', [0,0,45], degrees=True)
