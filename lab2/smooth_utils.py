@@ -72,7 +72,7 @@ def build_loop_motion(bvh_motion, half_life = 0.2, fps = 60):
     avel = quat_to_avel(rotations, 1/60)
     
     # 计算最后一帧和第一帧的旋转差
-    rot_diff = (R.from_quat(rotations[-1]) * R.from_quat(rotations[0].copy()).inv()).as_rotvec()
+    rot_diff = (R.from_quat(rotations[-1]) * R.from_quat(rotations[0].copy()).inv()).as_rotvec() #?????
     avel_diff = (avel[-1] - avel[0])
     
     # 将旋转差均匀分布到每一帧

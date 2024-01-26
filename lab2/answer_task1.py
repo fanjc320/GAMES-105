@@ -341,7 +341,7 @@ def get_interpolate_pose(rot1, rot2, pos1, pos2, w):
     # 这个slerp的参数times到底是什么意思
     ret_rot = np.empty_like(rot1)
     for i in range(len(rot1)):
-        slerp = Slerp([0, 1], R.from_quat([rot1[i], rot2[i]]))
+        slerp = Slerp([0, 1], R.from_quat([rot1[i], rot2[i]])) #?????
         ret_rot[i] = slerp([w]).as_quat()
 
     # 使用欧拉角直接线性插值，会产生鬼畜
