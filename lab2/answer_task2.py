@@ -99,17 +99,12 @@ class CharacterController():
             current_motion = self.blending_motion.raw_copy()
             if self.motion_state != last_motion_state:
                 facing_axis = \
-                R.from_quat(self.idle_motion.joint_rotation[self.cur_frame, 0, :]).apply(np.array([0, 0, 1])).flatten()[
-                    [0, 2]]
-                current_motion = current_motion.translation_and_rotation(0, self.idle_motion.joint_position[
-                    self.cur_frame, 0, [0, 2]],
-                                                                         facing_axis)
+                R.from_quat(self.idle_motion.joint_rotation[self.cur_frame, 0, :]).apply(np.array([0, 0, 1])).flatten()[[0, 2]]
+                current_motion = current_motion.translation_and_rotation(0, self.idle_motion.joint_position[self.cur_frame, 0, [0, 2]], facing_axis)
 
                 self.cur_frame = 0
-            key_frame = [(self.cur_frame + 20 * i) % self.motions[motion_id].motion_length for i in range(6)]
-            current_motion_key_frame_vel = current_motion.joint_position[key_frame, 0,
-                                           :] - current_motion.joint_position[[(frame - 1) for frame in key_frame], 0,
-                                                :]
+            key_frame = [(self.cur_frame + 20 * i) % self.motions[motion_id].motion_length for i in range(6)]# 关键帧 0,20,40,60,80,100
+            current_motion_key_frame_vel = current_motion.joint_position[key_frame, 0, :] - current_motion.joint_position[[(frame - 1) for frame in key_frame], 0, :] # 根节点的帧和前一阵的pos差，是速度；时间是单位时间的1/60,按理说应*60
             current_motion_avel = quat_to_avel(current_motion.joint_rotation[:, 0, :], 1 / 60)
 
             # It is only for root bone

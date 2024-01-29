@@ -216,19 +216,19 @@ class Controller:
 
     
     def desired_velocity_update(self, camera_to_pos, input_vel, simulation_rotation):
-        camera_to_pos[1] = 0
+        camera_to_pos[1] = 0 # ????
         
         fwrd_speed, side_speed, back_speed = self.move_speed
         
-        angle = np.arctan2(camera_to_pos[0], camera_to_pos[2]) # ????
+        angle = np.arctan2(camera_to_pos[0], camera_to_pos[2]) # ???? x和z的夹角????
         rot = R.from_rotvec( angle * np.array([0,1,0]) )
-        global_direction = rot.apply(input_vel)
+        global_direction = rot.apply(input_vel) #速度从标量成为方向向量
         
-        local_desired_direction = R.from_quat(simulation_rotation).inv().apply(global_direction)
+        local_desired_direction = R.from_quat(simulation_rotation).inv().apply(global_direction) # ????
         local_desired_velocity = np.array([side_speed, 0, fwrd_speed]) * local_desired_direction \
             if local_desired_direction[2] > 0 else np.array([side_speed, 0, back_speed]) * local_desired_direction
         
-        desired_velocity = R.from_quat(simulation_rotation).apply(local_desired_velocity)
+        desired_velocity = R.from_quat(simulation_rotation).apply(local_desired_velocity) # 对速度旋转?????
         return desired_velocity
     
     def desired_rotation_update(self, cur_rotation, desired_velocity):
@@ -346,7 +346,7 @@ class Controller:
     def set_pos(self, pos):
         init_pos = self.node.get_pos()
         pos = pos.copy()
-        pos[1] = 0.01
+        pos[1] = 0.01 #????
         self.node.set_pos(*pos)
         # global tmp
         # if tmp < 5:

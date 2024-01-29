@@ -413,7 +413,7 @@ class SimpleViewer(ShowBase):
         if not link_name in self.name2idx:
             return
         self.joints[self.name2idx[link_name]].setPos(self.render, *pos.tolist())
-        self.joints[self.name2idx[link_name]].setQuat(self.render, pc.Quat(*quat[...,[3,0,1,2]].tolist()))
+        self.joints[self.name2idx[link_name]].setQuat(self.render, pc.Quat(*quat[...,[3,0,1,2]].tolist())) #??????
     
     def show_pose(self, joint_name_list, joint_positions, joint_orientations):
         length = len(joint_name_list)

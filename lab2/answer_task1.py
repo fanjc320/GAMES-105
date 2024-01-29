@@ -495,8 +495,8 @@ def concatenate_two_motions(bvh_motion1, bvh_motion2, mix_frame1, mix_time):
     # 从mix_frame1截断， 先播放frame1，再播放frame2，这种肯定是不对的，最起码对动作进行一个转换，对吧
 
     # 从mix_frame开始的动作到新动作的第一帧对齐
-    rot = bvh_motion1.joint_rotation[mix_frame1, 0]
-    facing_axis = R.from_quat(rot).apply(np.array([0, 0, 1])).flatten()[[0, 2]]
+    rot = bvh_motion1.joint_rotation[mix_frame1, 0] # 第mix_frame1(60)帧的根节点旋转
+    facing_axis = R.from_quat(rot).apply(np.array([0, 0, 1])).flatten()[[0, 2]] # z轴被旋转后，在固定空间的投影，取x,z ????
 
     new_bvh_motion2 = bvh_motion2.translation_and_rotation(0, bvh_motion1.joint_position[mix_frame1, 0, [0, 2]],
                                                            facing_axis)
@@ -506,12 +506,12 @@ def concatenate_two_motions(bvh_motion1, bvh_motion2, mix_frame1, mix_time):
         (mix_time, new_bvh_motion2.joint_position.shape[1], new_bvh_motion2.joint_position.shape[2]))
     blending_joint_rotation = np.zeros(
         (mix_time, new_bvh_motion2.joint_rotation.shape[1], new_bvh_motion2.joint_rotation.shape[2]))
-    blending_joint_rotation[..., 3] = 1.0
+    blending_joint_rotation[..., 3] = 1.0 # 统一归一化为单位quartanion
 
     # 惯性方法： inertialize
     half_time = 0.3
     dt = 1 / 60
-    y = 4.0 * 0.69314 / (half_time + 1e-5)
+    y = 4.0 * 0.69314 / (half_time + 1e-5) # ln2 = 0.693147
 
     from smooth_utils import quat_to_avel
     src_avel = quat_to_avel(bvh_motion1.joint_rotation[mix_frame1 - 15:mix_frame1], dt)
@@ -525,7 +525,7 @@ def concatenate_two_motions(bvh_motion1, bvh_motion2, mix_frame1, mix_time):
     off_vel = (src_vel - dst_vel) / 60
     off_pos = bvh_motion1.joint_position[mix_frame1] - new_bvh_motion2.joint_position[0]
 
-    for i in range(len(new_bvh_motion2.joint_position)):
+    for i in range(len(new_bvh_motion2.joint_position)): # (100,25,3)
         tmp_ydt = y * i * dt
         eydt = np.exp(-tmp_ydt)
         # eydt = 1.0 / (1.0 + tmp_ydt + 0.48 * tmp_ydt * tmp_ydt + 0.235 * tmp_ydt * tmp_ydt * tmp_ydt)
